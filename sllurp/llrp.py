@@ -1,22 +1,68 @@
-from __future__ import print_function
-from collections import defaultdict
+from asyncio import AbstractEventLoop as AEL, Future, Protocol, get_event_loop
+from binascii import hexlify
+from collections import defaultdict, deque
+from functools import partial
+from socket import SOL_SOCKET, SO_KEEPALIVE
+from threading import get_ident
+from traceback import print_stack
 import time
 import logging
 import pprint
 import struct
-from llrp_proto import LLRPROSpec, LLRPError, Message_struct, \
-    Message_Type2Name, Capability_Name2Type, AirProtocol, \
-    llrp_data2xml, LLRPMessageDict, Modulation_Name2Type, \
-    DEFAULT_MODULATION
-from binascii import hexlify
+import sys
+from llrp_proto import (LLRPROSpec, LLRPError, Message_struct,
+    Message_Type2Name, Capability_Name2Type, AirProtocol,
+    llrp_data2xml, LLRPMessageDict, Modulation_Name2Type,
+    DEFAULT_MODULATION)
 from util import BITMASK
-from twisted.internet import reactor, task, defer
-from twisted.internet.protocol import ClientFactory
-from twisted.protocols.basic import LineReceiver
+# from twisted.internet import reactor, task, defer
+# from twisted.internet.protocol import ClientFactory
+# from twisted.protocols.basic import LineReceiver
 
 LLRP_PORT = 5084
 
 logger = logging.getLogger(__name__)
+
+def whereami():
+    print_stack(sys._current_frames()[get_ident()])
+
+
+class Deferred(object):
+    """
+    """
+
+    def __init__(self):
+        #loop = asyncio.get_event_loop()
+        #f = loop.create_future()
+        #f.add_done_callback()
+        self._queue = deque()
+
+    def callback(self, result):
+        return self._execute(0, result)
+
+    def errback(self, fail=None):
+        return self._execute(1, fail)
+
+    def _execute(self, hidx, result):
+        while self._queue:
+            handlers = self._queue.pop()
+            if handlers[hidx] is not None:
+                try:
+                    result = handlers[hidx](result)
+                    #if isinstance(result, Future):
+                    #    result = await result()
+                except Exception as ex:
+                    result = ex
+                    hidx = 1
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    def addCallback(self, callback, *args, **kwargs):
+        self._queue.appendleft((partial(callback, *args, **kwargs), None))
+
+    def addErrback(self, errback, *args, **kwargs):
+        self._queue.appendleft((None, partial(errback, *args, **kwargs)))
 
 
 class LLRPMessage(object):
@@ -44,7 +90,7 @@ class LLRPMessage(object):
     def serialize(self):
         if self.msgdict is None:
             raise LLRPError('No message dict to serialize.')
-        name = self.msgdict.keys()[0]
+        name = list(self.msgdict.keys())[0]
         logger.debug('serializing %s command', name)
         ver = self.msgdict[name]['Ver'] & BITMASK(3)
         msgtype = self.msgdict[name]['Type'] & BITMASK(10)
@@ -66,7 +112,7 @@ class LLRPMessage(object):
         """Turns a sequence of bytes into a message dictionary."""
         if self.msgbytes is None:
             raise LLRPError('No message bytes to deserialize.')
-        data = ''.join(self.msgbytes)
+        data = self.msgbytes
         msgtype, length, msgid = struct.unpack(self.full_hdr_fmt,
                                                data[:self.full_hdr_len])
         ver = (msgtype >> 10) & BITMASK(3)
@@ -114,7 +160,7 @@ class LLRPMessage(object):
     def getName(self):
         if not self.msgdict:
             return None
-        return self.msgdict.keys()[0]
+        return list(self.msgdict.keys())[0]
 
     def __repr__(self):
         try:
@@ -125,7 +171,7 @@ class LLRPMessage(object):
         return ret
 
 
-class LLRPClient(LineReceiver):
+class LLRPClient(Protocol):
     STATE_DISCONNECTED = 1
     STATE_CONNECTING = 2
     STATE_CONNECTED = 3
@@ -161,7 +207,7 @@ class LLRPClient(LineReceiver):
                  tag_content_selector={},
                  session=2, tag_population=4):
         self.factory = factory
-        self.setRawMode()
+        self.transport = None
         self.state = LLRPClient.STATE_DISCONNECTED
         self.report_every_n_tags = report_every_n_tags
         self.report_timeout_ms = report_timeout_ms
@@ -212,15 +258,15 @@ class LLRPClient(LineReceiver):
     def addMessageCallback(self, msg_type, cb):
         self._message_callbacks[msg_type].append(cb)
 
-    def connectionMade(self):
-        t = self.transport
-        t.setTcpKeepAlive(True)
+    def connection_made(self, t):
+        self.transport = t
+        sock = t.get_extra_info('socket')
+        sock.setsockopt(SOL_SOCKET, SO_KEEPALIVE, True)
 
         # overwrite the peer hostname with the hostname the connector asked us
         # for (e.g., 'localhost' instead of '127.0.0.1')
-        dest = t.connector.getDestination()
-        self.peer_ip, self.peer_port = t.getHandle().getpeername()
-        self.peername = (dest.host, self.peer_port)
+        self.peer_ip, self.peer_port = sock.getpeername()
+        self.peername = (self.peer_ip, self.peer_port)
 
         logger.info('connected to %s (%s:%s)', self.peername, self.peer_ip,
                     self.peer_port)
@@ -242,7 +288,7 @@ class LLRPClient(LineReceiver):
            XXX this is a gross hack."""
         self.setState(args[0], **kwargs)
 
-    def connectionLost(self, reason):
+    def connection_lost(self, reason):
         self.factory.protocols.remove(self)
 
     def parseCapabilities(self, capdict):
@@ -363,7 +409,7 @@ class LLRPClient(LineReceiver):
             self.processDeferreds(msgName, lmsg.isSuccess())
 
             # a Deferred to call when we get GET_READER_CAPABILITIES_RESPONSE
-            d = defer.Deferred()
+            d = Deferred()
             d.addCallback(self._setState_wrapper, LLRPClient.STATE_CONNECTED)
             d.addErrback(self.panic, 'GET_READER_CAPABILITIES failed')
             self.send_GET_READER_CAPABILITIES(onCompletion=d)
@@ -500,9 +546,9 @@ class LLRPClient(LineReceiver):
             logger.error('there should NOT be Deferreds left for %s,'
                          ' but there are!', msgName)
 
-    def rawDataReceived(self, data):
+    def data_received(self, data):
         logger.debug('got %d bytes from reader: %s', len(data),
-                     data.encode('hex'))
+                     hexlify(data).decode())
 
         if self.expectingRemainingBytes:
             if len(data) >= self.expectingRemainingBytes:
@@ -728,7 +774,7 @@ class LLRPClient(LineReceiver):
             }
         }
 
-        d = defer.Deferred()
+        d = Deferred()
         d.addCallback(self.send_ENABLE_ACCESSSPEC, accessSpecID)
         d.addErrback(self.panic, 'ADD_ACCESSSPEC failed')
 
@@ -736,7 +782,7 @@ class LLRPClient(LineReceiver):
 
     def nextAccess(self, readSpecPar, writeSpecPar, stopSpecPar,
                    accessSpecID=1):
-        d = defer.Deferred()
+        d = Deferred()
         d.addCallback(self.send_DELETE_ACCESSSPEC, readSpecPar, writeSpecPar,
                       stopSpecPar, accessSpecID)
         d.addErrback(self.send_DELETE_ACCESSSPEC, readSpecPar, writeSpecPar,
@@ -755,7 +801,7 @@ class LLRPClient(LineReceiver):
 
         logger.info('starting inventory')
 
-        started = defer.Deferred()
+        started = Deferred()
         started.addCallback(self._setState_wrapper,
                             LLRPClient.STATE_INVENTORYING)
         started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
@@ -763,7 +809,7 @@ class LLRPClient(LineReceiver):
         if self.duration:
             task.deferLater(reactor, self.duration, self.stopPolitely, True)
 
-        d = defer.Deferred()
+        d = Deferred()
         d.addCallback(self.send_ENABLE_ROSPEC, rospec, onCompletion=started)
         d.addErrback(self.panic, 'ADD_ROSPEC failed')
 
@@ -801,7 +847,7 @@ class LLRPClient(LineReceiver):
             }}))
         self.setState(LLRPClient.STATE_SENT_DELETE_ACCESSSPEC)
 
-        d = defer.Deferred()
+        d = Deferred()
         d.addCallback(self.stopAllROSpecs)
         d.addErrback(self.panic, 'DELETE_ACCESSSPEC failed')
 
@@ -818,7 +864,7 @@ class LLRPClient(LineReceiver):
             }}))
         self.setState(LLRPClient.STATE_SENT_DELETE_ROSPEC)
 
-        d = defer.Deferred()
+        d = Deferred()
         d.addErrback(self.panic, 'DELETE_ROSPEC failed')
 
         self._deferreds['DELETE_ROSPEC_RESPONSE'].append(d)
@@ -910,7 +956,7 @@ class LLRPClient(LineReceiver):
             }}))
         self.setState(LLRPClient.STATE_PAUSING)
 
-        d = defer.Deferred()
+        d = Deferred()
         d.addCallback(self._setState_wrapper, LLRPClient.STATE_PAUSED)
         d.addErrback(self.complain, 'pause() failed')
         self._deferreds['DISABLE_ROSPEC_RESPONSE'].append(d)
@@ -937,7 +983,7 @@ class LLRPClient(LineReceiver):
 
         rospec = self.getROSpec()['ROSpec']
 
-        d = defer.Deferred()
+        d = Deferred()
         d.addCallback(self._setState_wrapper, LLRPClient.STATE_INVENTORYING)
         d.addErrback(self.panic, 'resume() failed')
         self.send_ENABLE_ROSPEC(None, rospec, onCompletion=d)
@@ -948,7 +994,10 @@ class LLRPClient(LineReceiver):
         self.transport.write(llrp_msg.msgbytes)
 
 
-class LLRPClientFactory(ClientFactory):
+class LLRPClientEngine(object):
+    """
+    """
+
     def __init__(self, onFinish=None, reconnect=False, **kwargs):
         self.onFinish = onFinish
         self.reconnect = reconnect
@@ -976,7 +1025,13 @@ class LLRPClientFactory(ClientFactory):
     def addTagReportCallback(self, cb):
         self._message_callbacks['RO_ACCESS_REPORT'].append(cb)
 
-    def buildProtocol(self, _):
+    def new_reader(self, host, port, timeout):
+        loop = get_event_loop()
+        coro = loop.create_connection(self.build_protocol,
+                                      host=host, port=port)
+        return coro
+
+    def build_protocol(self):
         proto = LLRPClient(factory=self, **self.client_args)
 
         # register state-change callbacks with new client
@@ -1045,7 +1100,7 @@ class LLRPClientFactory(ClientFactory):
         protoDeferreds = []
         for proto in self.protocols:
             protoDeferreds.append(proto.stopPolitely(disconnect=True))
-        return defer.DeferredList(protoDeferreds)
+        return DeferredList(protoDeferreds)
 
     def getProtocolStates(self):
         states = {str(proto.peername[0]): LLRPClient.getStateName(proto.state)

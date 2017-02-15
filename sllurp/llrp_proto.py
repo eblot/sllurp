@@ -1173,7 +1173,7 @@ def decode_GeneralDeviceCapabilities(data):
     par['HasUTCClockCapability'] = (flags & BIT(14) == BIT(14))
 
     pastVer = fmt_len + par['FirmwareVersionByteCount']
-    par['ReaderFirmwareVersion'] = body[fmt_len:pastVer]
+    par['ReaderFirmwareVersion'] = body[fmt_len:pastVer].decode()
     body = body[pastVer:]
     ret, body = decode('ReceiveSensitivityTableEntry')(body)
     if ret:
@@ -1926,7 +1926,7 @@ def encode_ROSpecStartTrigger(par):
     msg_header = '!HHB'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = ''
+    data = b''
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len, t_type) + data
@@ -1949,12 +1949,12 @@ Message_struct['ROSpecStartTrigger'] = {
 def encode_ROSpecStopTrigger(par):
     msgtype = Message_struct['ROSpecStopTrigger']['type']
     t_type = StopTrigger_Name2Type[par['ROSpecStopTriggerType']]
-    duration = par['DurationTriggerValue']
+    duration = int(par['DurationTriggerValue'])
 
     msg_header = '!HHBI'
     msg_header_len = struct.calcsize(msg_header)
 
-    data = ''
+    data = b''
 
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len,
@@ -1980,7 +1980,7 @@ def encode_AISpec(par):
 
     msg_header = '!HHH'
     msg_header_len = struct.calcsize(msg_header)
-    data = ''
+    data = b''
 
     antid = par['AntennaIDs']
     antennas = []
@@ -2803,7 +2803,7 @@ def decode_LLRPStatus(data):
         par['StatusCode'] = Error_Type2Name[code]
     except KeyError:
         logger.warning('Unknown field code %s', code)
-    par['ErrorDescription'] = body[offset:offset + n]
+    par['ErrorDescription'] = body[offset:offset + n].decode()
 
     # Decode parameters
     ret, body = decode('FieldError')(body[offset + n:])

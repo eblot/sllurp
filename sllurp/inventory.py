@@ -1,13 +1,13 @@
-from __future__ import print_function
 import argparse
+import asyncio
 import logging
 import pprint
 import time
-from twisted.internet import reactor, defer
+# from twisted.internet import reactor, defer
 
 import sllurp.llrp as llrp
-from sllurp.llrp_proto import Modulation_Name2Type, DEFAULT_MODULATION, \
-    Modulation_DefaultTari
+from sllurp.llrp_proto import (Modulation_Name2Type, DEFAULT_MODULATION,
+                               Modulation_DefaultTari)
 
 startTime = None
 endTime = None
@@ -28,7 +28,7 @@ def stopTimeMeasurement():
     endTime = time.time()
 
 
-def finish(_):
+async def finish(loop):
     global startTime
     global endTime
 
@@ -38,8 +38,9 @@ def finish(_):
 
     logger.info('total # of tags seen: %d (%d tags/second)', numTags,
                 numTags/runTime)
-    if reactor.running:
-        reactor.stop()
+    loop.close()
+#    if reactor.running:
+#        reactor.stop()
 
 
 def politeShutdown(factory):
@@ -66,7 +67,7 @@ def parse_args():
                         nargs='+')
     parser.add_argument('-p', '--port', default=llrp.LLRP_PORT, type=int,
                         help='port (default {})'.format(llrp.LLRP_PORT))
-    parser.add_argument('-t', '--time', type=float,
+    parser.add_argument('-t', '--time', type=float, default='0.0',
                         help='seconds to inventory (default forever)')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='show debugging output')
@@ -100,7 +101,7 @@ def parse_args():
 
 def init_logging():
     logLevel = (args.debug and logging.DEBUG or logging.INFO)
-    logFormat = '%(asctime)s %(name)s: %(levelname)s: %(message)s'
+    logFormat = '%(levelname)s: %(message)s'
     formatter = logging.Formatter(logFormat)
     stderr = logging.StreamHandler()
     stderr.setFormatter(formatter)
@@ -132,52 +133,64 @@ def main():
             logger.info('selected recommended Tari of %d for %s', args.tari,
                         args.modulation)
 
-    enabled_antennas = map(lambda x: int(x.strip()), args.antennas.split(','))
+    enabled_antennas = list(map(lambda x:
+                                int(x.strip()), args.antennas.split(',')))
+
+    loop = asyncio.get_event_loop()
 
     # d.callback will be called when all connections have terminated normally.
     # use d.addCallback(<callable>) to define end-of-program behavior.
-    d = defer.Deferred()
-    d.addCallback(finish)
+#    d = defer.Deferred()
+#    d.addCallback(finish)
 
-    fac = llrp.LLRPClientFactory(onFinish=d,
-                                 duration=args.time,
-                                 report_every_n_tags=args.every_n,
-                                 antennas=enabled_antennas,
-                                 tx_power=args.tx_power,
-                                 modulation=args.modulation,
-                                 tari=args.tari,
-                                 session=args.session,
-                                 tag_population=args.population,
-                                 start_inventory=True,
-                                 disconnect_when_done=(args.time > 0),
-                                 reconnect=args.reconnect,
-                                 tag_content_selector={
-                                     'EnableROSpecID': False,
-                                     'EnableSpecIndex': False,
-                                     'EnableInventoryParameterSpecID': False,
-                                     'EnableAntennaID': True,
-                                     'EnableChannelIndex': False,
-                                     'EnablePeakRRSI': True,
-                                     'EnableFirstSeenTimestamp': False,
-                                     'EnableLastSeenTimestamp': True,
-                                     'EnableTagSeenCount': True,
-                                     'EnableAccessSpecID': False
-                                 })
+    eng = llrp.LLRPClientEngine(onFinish=finish,
+                                duration=args.time,
+                                report_every_n_tags=args.every_n,
+                                antennas=enabled_antennas,
+                                tx_power=args.tx_power,
+                                modulation=args.modulation,
+                                tari=args.tari,
+                                session=args.session,
+                                tag_population=args.population,
+                                start_inventory=True,
+                                disconnect_when_done=(args.time > 0),
+                                reconnect=args.reconnect,
+                                tag_content_selector={
+                                    'EnableROSpecID': False,
+                                    'EnableSpecIndex': False,
+                                    'EnableInventoryParameterSpecID': False,
+                                    'EnableAntennaID': True,
+                                    'EnableChannelIndex': False,
+                                    'EnablePeakRRSI': True,
+                                    'EnableFirstSeenTimestamp': False,
+                                    'EnableLastSeenTimestamp': True,
+                                    'EnableTagSeenCount': True,
+                                    'EnableAccessSpecID': False
+                                })
 
     # tagReportCallback will be called every time the reader sends a TagReport
     # message (i.e., when it has "seen" tags).
-    fac.addTagReportCallback(tagReportCallback)
+    eng.addTagReportCallback(tagReportCallback)
 
+    coroutines = []
     for host in args.host:
-        reactor.connectTCP(host, args.port, fac, timeout=3)
+        coroutines.append(eng.new_reader(host, args.port, timeout=3))
 
     # catch ctrl-C and stop inventory before disconnecting
-    reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, fac)
+#    reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, eng)
+
+    async def _run():
+        await asyncio.sleep(100)
+    coroutines.append(_run())
 
     # start runtime measurement to determine rates
     startTimeMeasurement()
 
-    reactor.run()
+    loop.run_until_complete(
+        asyncio.gather(*coroutines)
+    )
+    # loop.close()
+#    reactor.run()
 
 
 if __name__ == '__main__':
