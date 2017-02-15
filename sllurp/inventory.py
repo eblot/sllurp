@@ -18,6 +18,9 @@ logger = logging.getLogger('sllurp')
 args = None
 
 
+shutdown_event = asyncio.Event()
+
+
 def startTimeMeasurement():
     global startTime
     startTime = time.time()
@@ -28,9 +31,10 @@ def stopTimeMeasurement():
     endTime = time.time()
 
 
-async def finish(loop):
+def finish(loop):
     global startTime
     global endTime
+    global shutdown_event
 
     # stop runtime measurement to determine rates
     stopTimeMeasurement()
@@ -38,7 +42,7 @@ async def finish(loop):
 
     logger.info('total # of tags seen: %d (%d tags/second)', numTags,
                 numTags/runTime)
-    loop.close()
+    shutdown_event.set()
 #    if reactor.running:
 #        reactor.stop()
 
@@ -173,15 +177,14 @@ def main():
     eng.addTagReportCallback(tagReportCallback)
 
     coroutines = []
+    coroutines.append(shutdown_event.wait())
+
     for host in args.host:
         coroutines.append(eng.new_reader(host, args.port, timeout=3))
 
     # catch ctrl-C and stop inventory before disconnecting
 #    reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, eng)
 
-    async def _run():
-        await asyncio.sleep(100)
-    coroutines.append(_run())
 
     # start runtime measurement to determine rates
     startTimeMeasurement()

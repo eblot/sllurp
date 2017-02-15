@@ -4,7 +4,7 @@ from collections import defaultdict, deque
 from functools import partial
 from socket import SOL_SOCKET, SO_KEEPALIVE
 from threading import get_ident
-from traceback import print_stack
+from traceback import print_exc, print_stack
 import time
 import logging
 import pprint
@@ -44,25 +44,33 @@ class Deferred(object):
         return self._execute(1, fail)
 
     def _execute(self, hidx, result):
+        # print(">DEFERRED")
         while self._queue:
             handlers = self._queue.pop()
+            #print("  DEF %s -> [%d] %s : %s" %
+            #      (result, hidx, handlers[0], handlers[1]))
             if handlers[hidx] is not None:
                 try:
-                    result = handlers[hidx](result)
+                    func, args, kwargs = handlers[hidx]
+                    result = func(result, *args, **kwargs)
+                    hidx = 0
                     #if isinstance(result, Future):
                     #    result = await result()
                 except Exception as ex:
                     result = ex
                     hidx = 1
+                    print_exc()
         if isinstance(result, Exception):
+            #print("^DEFERRED")
             raise result
+        #print("<DEFERRED %s" % result)
         return result
 
     def addCallback(self, callback, *args, **kwargs):
-        self._queue.appendleft((partial(callback, *args, **kwargs), None))
+        self._queue.appendleft(((callback, args, kwargs), None))
 
     def addErrback(self, errback, *args, **kwargs):
-        self._queue.appendleft((None, partial(errback, *args, **kwargs)))
+        self._queue.appendleft((None, (errback, args, kwargs)))
 
 
 class LLRPMessage(object):
@@ -290,6 +298,7 @@ class LLRPClient(Protocol):
 
     def connection_lost(self, reason):
         self.factory.protocols.remove(self)
+        self.factory.clientConnectionLost(self, reason)
 
     def parseCapabilities(self, capdict):
         """Parse a capabilities dictionary and adjust instance settings
@@ -537,7 +546,7 @@ class LLRPClient(Protocol):
             self.processDeferreds(msgName, lmsg.isSuccess())
             if self.disconnecting:
                 logger.info('disconnecting')
-                self.transport.loseConnection()
+                self.transport.close()
 
         else:
             logger.warn('message %s received in unknown state!', msgName)
@@ -807,7 +816,8 @@ class LLRPClient(Protocol):
         started.addErrback(self.panic, 'ENABLE_ROSPEC failed')
 
         if self.duration:
-            task.deferLater(reactor, self.duration, self.stopPolitely, True)
+            loop = get_event_loop()
+            loop.call_later(self.duration, self.stopPolitely, True)
 
         d = Deferred()
         d.addCallback(self.send_ENABLE_ROSPEC, rospec, onCompletion=started)
@@ -1015,8 +1025,8 @@ class LLRPClientEngine(object):
 
         self.protocols = set()
 
-    def startedConnecting(self, connector):
-        logger.info('connecting...')
+    # def startedConnecting(self, connector):
+    #   logger.info('connecting...')
 
     def addStateCallback(self, state, cb):
         assert state in self._state_callbacks
@@ -1053,19 +1063,20 @@ class LLRPClientEngine(object):
             proto.nextAccess(readSpecPar=readParam, writeSpecPar=writeParam,
                              stopSpecPar=stopParam, accessSpecID=accessSpecID)
 
-    def clientConnectionLost(self, connector, reason):
-        logger.info('lost connection: %s', reason.getErrorMessage())
-        ClientFactory.clientConnectionLost(self, connector, reason)
+    def clientConnectionLost(self, client, reason):
+        logger.info('lost connection: %s', reason)
+        # ClientFactory.clientConnectionLost(self, connector, reason)
         if self.reconnect:
+            raise RuntimeException('Cannot reconnect')
             time.sleep(self.reconnect_delay)
             connector.connect()
         elif not self.protocols:
             if self.onFinish:
-                self.onFinish.callback(None)
+                get_event_loop().call_soon(self.onFinish, None)
 
     def clientConnectionFailed(self, connector, reason):
         logger.info('connection failed: %s', reason.getErrorMessage())
-        ClientFactory.clientConnectionFailed(self, connector, reason)
+        # ClientFactory.clientConnectionFailed(self, connector, reason)
         if self.reconnect:
             time.sleep(self.reconnect_delay)
             connector.connect()
