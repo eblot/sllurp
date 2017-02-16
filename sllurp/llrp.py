@@ -11,30 +11,26 @@ import pprint
 import struct
 import sys
 from llrp_proto import (LLRPROSpec, LLRPError, Message_struct,
-    Message_Type2Name, Capability_Name2Type, AirProtocol,
-    llrp_data2xml, LLRPMessageDict, Modulation_Name2Type,
-    DEFAULT_MODULATION)
+                        Message_Type2Name, Capability_Name2Type, AirProtocol,
+                        llrp_data2xml, LLRPMessageDict, Modulation_Name2Type,
+                        DEFAULT_MODULATION)
 from util import BITMASK
-# from twisted.internet import reactor, task, defer
-# from twisted.internet.protocol import ClientFactory
-# from twisted.protocols.basic import LineReceiver
 
 LLRP_PORT = 5084
 
 logger = logging.getLogger(__name__)
 
-def whereami():
+
+def whereamifrom():
     print_stack(sys._current_frames()[get_ident()])
 
 
 class Deferred(object):
-    """
+    """Duck-typed Deferrerd class, to ease porting from twisted to asyncio
+       for the very specific and limited use of Deferred object in this module.
     """
 
     def __init__(self):
-        #loop = asyncio.get_event_loop()
-        #f = loop.create_future()
-        #f.add_done_callback()
         self._queue = deque()
 
     def callback(self, result):
@@ -44,26 +40,19 @@ class Deferred(object):
         return self._execute(1, fail)
 
     def _execute(self, hidx, result):
-        # print(">DEFERRED")
         while self._queue:
             handlers = self._queue.pop()
-            #print("  DEF %s -> [%d] %s : %s" %
-            #      (result, hidx, handlers[0], handlers[1]))
             if handlers[hidx] is not None:
                 try:
                     func, args, kwargs = handlers[hidx]
                     result = func(result, *args, **kwargs)
                     hidx = 0
-                    #if isinstance(result, Future):
-                    #    result = await result()
                 except Exception as ex:
                     result = ex
                     hidx = 1
                     print_exc()
         if isinstance(result, Exception):
-            #print("^DEFERRED")
             raise result
-        #print("<DEFERRED %s" % result)
         return result
 
     def addCallback(self, callback, *args, **kwargs):

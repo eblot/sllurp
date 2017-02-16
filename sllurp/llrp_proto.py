@@ -100,8 +100,6 @@ def dump(data, label):
 # LLRP defines & structs
 #
 
-LLRP_PORT = 5084
-
 VER_PROTO_V1 = 1
 
 gen_header = '!HI'
@@ -257,6 +255,7 @@ def encode_GetReaderCapabilities(msg):
     req = msg['RequestedData']
     return struct.pack('!B', req)
 
+
 Message_struct['GET_READER_CAPABILITIES'] = {
     'type': 1,
     'fields': [
@@ -296,6 +295,7 @@ def decode_GetReaderCapabilitiesResponse(data):
 
     return msg
 
+
 Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
     'type': 11,
     'fields': [
@@ -313,6 +313,7 @@ Message_struct['GET_READER_CAPABILITIES_RESPONSE'] = {
 # 16.1.3 ADD_ROSPEC
 def encode_AddROSpec(msg):
     return encode('ROSpec')(msg['ROSpec'])
+
 
 Message_struct['ADD_ROSPEC'] = {
     'type': 20,
@@ -342,6 +343,7 @@ def decode_AddROSpecResponse(data):
 
     return msg
 
+
 Message_struct['ADD_ROSPEC_RESPONSE'] = {
     'type': 30,
     'fields': [
@@ -357,6 +359,7 @@ def encode_DeleteROSpec(msg):
         msgid = msg['ROSpecID']
 
         return struct.pack('!I', msgid)
+
 
 Message_struct['DELETE_ROSPEC'] = {
     'type': 21,
@@ -386,6 +389,7 @@ def decode_DeleteROSpecResponse(data):
 
     return msg
 
+
 Message_struct['DELETE_ROSPEC_RESPONSE'] = {
     'type': 31,
     'fields': [
@@ -401,6 +405,7 @@ def encode_StartROSpec(msg):
         msgid = msg['ROSpecID']
 
         return struct.pack('!I', msgid)
+
 
 Message_struct['START_ROSPEC'] = {
     'type': 22,
@@ -430,6 +435,7 @@ def decode_StartROSpecResponse(data):
 
     return msg
 
+
 Message_struct['START_ROSPEC_RESPONSE'] = {
     'type': 32,
     'fields': [
@@ -445,6 +451,7 @@ def encode_StopROSpec(msg):
         msgid = msg['ROSpecID']
 
         return struct.pack('!I', msgid)
+
 
 Message_struct['STOP_ROSPEC'] = {
     'type': 23,
@@ -474,6 +481,7 @@ def decode_StopROSpecResponse(data):
 
     return msg
 
+
 Message_struct['STOP_ROSPEC_RESPONSE'] = {
     'type': 33,
     'fields': [
@@ -489,6 +497,7 @@ def encode_EnableROSpec(msg):
     msgid = msg['ROSpecID']
 
     return struct.pack('!I', msgid)
+
 
 Message_struct['ENABLE_ROSPEC'] = {
     'type': 24,
@@ -518,6 +527,7 @@ def decode_EnableROSpecResponse(data):
 
     return msg
 
+
 Message_struct['ENABLE_ROSPEC_RESPONSE'] = {
     'type': 34,
     'fields': [
@@ -533,6 +543,7 @@ def encode_DisableROSpec(msg):
         msgid = msg['ROSpecID']
 
         return struct.pack('!I', msgid)
+
 
 Message_struct['DISABLE_ROSPEC'] = {
     'type': 25,
@@ -562,6 +573,7 @@ def decode_DisableROSpecResponse(data):
 
     return msg
 
+
 Message_struct['DISABLE_ROSPEC_RESPONSE'] = {
     'type': 35,
     'fields': [
@@ -584,8 +596,6 @@ def decode_ROAccessReport(data):
             ret, data = decode('TagReportData')(data)
         except TypeError as ex:  # XXX
             logger.error('Unable to decode TagReportData: %s' % str(ex))
-            from traceback import print_exc
-            print_exc()
             break
         # print('len(ret) = {}'.format(len(ret)))
         # print('len(data) = {}'.format(len(data)))
@@ -595,6 +605,7 @@ def decode_ROAccessReport(data):
             break
 
     return msg
+
 
 Message_struct['RO_ACCESS_REPORT'] = {
     'type': 61,
@@ -610,6 +621,7 @@ Message_struct['RO_ACCESS_REPORT'] = {
 def decode_Keepalive(msg):
     return ''
 
+
 Message_struct['KEEPALIVE'] = {
     'type': 62,
     'fields': [
@@ -622,6 +634,7 @@ Message_struct['KEEPALIVE'] = {
 # 16.1.36 KEEPALIVE_ACK
 def encode_KeepaliveAck(msg):
     return ''
+
 
 Message_struct['KEEPALIVE_ACK'] = {
     'type': 72,
@@ -648,6 +661,7 @@ def decode_ReaderEventNotification(data):
 
     return msg
 
+
 Message_struct['READER_EVENT_NOTIFICATION'] = {
     'type': 63,
     'fields': [
@@ -661,6 +675,7 @@ Message_struct['READER_EVENT_NOTIFICATION'] = {
 # 16.1.40 CLOSE_CONNECTION
 def encode_CloseConnection(msg):
     return ''
+
 
 Message_struct['CLOSE_CONNECTION'] = {
     'type': 14,
@@ -688,6 +703,7 @@ def decode_CloseConnectionResponse(data):
         raise LLRPError('junk at end of message: ' + bin2dump(body))
 
     return msg
+
 
 # 16.1.41 CLOSE_CONNECTION_RESPONSE
 Message_struct['CLOSE_CONNECTION_RESPONSE'] = {
@@ -720,6 +736,7 @@ def decode_UTCTimestamp(data):
     (par['Microseconds'], ) = struct.unpack('!Q', body)
 
     return par, data[length:]
+
 
 Message_struct['UTCTimestamp'] = {
     'type':   128,
@@ -758,6 +775,7 @@ def decode_RegulatoryCapabilities(data):
         par['UHFBandCapabilities'] = ret
 
     return par, data[length:]
+
 
 Message_struct['RegulatoryCapabilities'] = {
     'type': 143,
@@ -805,6 +823,7 @@ def decode_UHFBandCapabilities(data):
         par['RFSurveyFrequencyCapabilities'] = ret
     return par, data[length:]
 
+
 Message_struct['UHFBandCapabilities'] = {
     'type': 144,
     'fields': [
@@ -835,6 +854,7 @@ def decode_TransmitPowerLevelTableEntry(data):
     par['Index'], par['TransmitPowerValue'] = struct.unpack('!HH', body)
 
     return par, data[length:]
+
 
 Message_struct['TransmitPowerLevelTableEntry'] = {
     'type': 145,
@@ -879,6 +899,7 @@ def decode_FrequencyInformation(data):
 
     return par, data[length:]
 
+
 Message_struct['FrequencyInformation'] = {
     'type': 146,
     'fields': [
@@ -921,6 +942,7 @@ def decode_FrequencyHopTable(data):
 
     return par, data[length:]
 
+
 Message_struct['FrequencyHopTable'] = {
     'type': 147,
     'fields': [
@@ -961,6 +983,7 @@ def decode_FixedFrequencyTable(data):
 
     return par, data[length:]
 
+
 Message_struct['FixedFrequencyTable'] = {
     'type': 148,
     'fields': [
@@ -997,6 +1020,7 @@ def decode_UHFRFModeTable(data):
         i += 1
 
     return par, data[length:]
+
 
 Message_struct['UHFRFModeTable'] = {
     'type': 328,
@@ -1041,6 +1065,7 @@ def decode_UHFC1G2RFModeTableEntry(data):
 
     return par, data[length:]
 
+
 Message_struct['UHFC1G2RFModeTableEntry'] = {
     'type': 329,
     'fields': [
@@ -1079,6 +1104,7 @@ def decode_RFSurveyFrequencyCapabilities(data):
      par['MaximumFrequency']) = struct.unpack('!II', body)
 
     return par, data[length:]
+
 
 Message_struct['RFSurveyFrequencyCapabilities'] = {
     'type': 365,
@@ -1124,6 +1150,7 @@ def decode_LLRPCapabilities(data):
     par['SupportsEventAndReportHolding'] = (flags & BIT(3) == BIT(3))
 
     return par, data[length:]
+
 
 Message_struct['LLRPCapabilities'] = {
     'type': 142,
@@ -1199,6 +1226,7 @@ def decode_GeneralDeviceCapabilities(data):
 
     return par, data[length:]
 
+
 Message_struct['GeneralDeviceCapabilities'] = {
     'type': 137,
     'fields': [
@@ -1238,6 +1266,7 @@ def decode_MaximumReceiveSensitivity(data):
 
     return par, data[length:]
 
+
 Message_struct['MaximumReceiveSensitivity'] = {
     'type': 363,
     'fields': [
@@ -1266,6 +1295,7 @@ def decode_ReceiveSensitivityTableEntry(data):
      par['ReceiveSensitivityValue']) = struct.unpack('!HH', body)
 
     return par, data[length:]
+
 
 Message_struct['ReceiveSensitivityTableEntry'] = {
     'type': 139,
@@ -1297,6 +1327,7 @@ def decode_PerAntennaReceiveSensitivityRange(data):
      par['ReceiveSensitivityIndexMax']) = struct.unpack('!HHH', body)
 
     return par, data[length:]
+
 
 Message_struct['PerAntennaReceiveSensitivityRange'] = {
     'type': 149,
@@ -1337,6 +1368,7 @@ def decode_PerAntennaAirProtocol(data):
 
     return par, data[length:]
 
+
 Message_struct['PerAntennaAirProtocol'] = {
     'type': 140,
     'fields': [
@@ -1368,6 +1400,7 @@ def decode_GPIOCapabilities(data):
 
     return par, data[length:]
 
+
 Message_struct['GPIOCapabilities'] = {
     'type': 141,
     'fields': [
@@ -1388,6 +1421,7 @@ def decode_ErrorMessage(data):
     else:
         raise LLRPError('missing or invalid LLRPStatus parameter')
     return msg
+
 
 Message_struct['ErrorMessage'] = {
     'type': 100,
@@ -1420,6 +1454,7 @@ def encode_ROSpec(par):
                        msgid, priority, state) + data
 
     return data
+
 
 Message_struct['ROSpec'] = {
     'type': 177,
@@ -1459,6 +1494,7 @@ def encode_AccessSpec(par):
 
     return data
 
+
 # 17.2.5.1 AccessSpec
 Message_struct['AccessSpec'] = {
     'type': 207,
@@ -1481,6 +1517,7 @@ Message_struct['AccessSpec'] = {
 def encode_AddAccessSpec(msg):
     return encode('AccessSpec')(msg['AccessSpec'])
 
+
 # 17.1.21 ADD_ACCESSSPEC
 Message_struct['ADD_ACCESSSPEC'] = {
     'type': 40,
@@ -1497,6 +1534,7 @@ def decode_AddAccessSpecResponse(msg):
     # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
     return decode_AddROSpecResponse(msg)
 
+
 # 17.1.22 ADD_ACCESSSPEC_RESPONSE
 Message_struct['ADD_ACCESSSPEC_RESPONSE'] = {
     'type': 50,
@@ -1511,6 +1549,7 @@ Message_struct['ADD_ACCESSSPEC_RESPONSE'] = {
 # 17.1.23 DELETE_ACCESSSPEC
 def encode_DeleteAccessSpec(msg):
     return struct.pack('!I', msg['AccessSpecID'])
+
 
 # 17.1.23 DELETE_ACCESSSPEC
 Message_struct['DELETE_ACCESSSPEC'] = {
@@ -1528,6 +1567,7 @@ def decode_DeleteAccessSpecResponse(msg):
     # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
     return decode_DeleteROSpecResponse(msg)
 
+
 # 17.1.24 DELETE_ACCESSSPEC_RESPONSE
 Message_struct['DELETE_ACCESSSPEC_RESPONSE'] = {
     'type': 51,
@@ -1542,6 +1582,7 @@ Message_struct['DELETE_ACCESSSPEC_RESPONSE'] = {
 # 17.1.25 ENABLE_ACCESSSPEC
 def encode_EnableAccessSpec(msg):
     return struct.pack('!I', msg['AccessSpecID'])
+
 
 # 17.1.25 ENABLE_ACCESSSPEC
 Message_struct['ENABLE_ACCESSSPEC'] = {
@@ -1559,6 +1600,7 @@ def decode_EnableAccessSpecResponse(msg):
     # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
     return decode_EnableROSpecResponse(msg)
 
+
 # 17.1.26 ENABLE_ACCESSSPEC_RESPONSE
 Message_struct['ENABLE_ACCESSSPEC_RESPONSE'] = {
     'type': 52,
@@ -1573,6 +1615,7 @@ Message_struct['ENABLE_ACCESSSPEC_RESPONSE'] = {
 # 17.1.27 DISABLE_ACCESSSPEC
 def encode_DisableAccessSpec(msg):
     return struct.pack('!I', msg['AccessSpecID'])
+
 
 # 17.1.27 DISABLE_ACCESSSPEC
 Message_struct['DISABLE_ACCESSSPEC'] = {
@@ -1589,6 +1632,7 @@ Message_struct['DISABLE_ACCESSSPEC'] = {
 def decode_DisableAccessSpecResponse(msg):
     # just an LLRPStatus wrapper, same format as ADD_ROSPEC_RESPONSE
     return decode_DisableROSpecResponse(msg)
+
 
 # 17.1.28 DISABLE_ACCESSSPEC_RESPONSE
 Message_struct['DISABLE_ACCESSSPEC_RESPONSE'] = {
@@ -1613,6 +1657,7 @@ def encode_AccessSpecStopTrigger(par):
                        len(data) + msg_header_len) + data
 
     return data
+
 
 Message_struct['AccessSpecStopTrigger'] = {
     'type': 208,
@@ -1647,6 +1692,7 @@ def encode_AccessCommand(par):
 
     return data
 
+
 Message_struct['AccessCommand'] = {
     'type': 209,
     'fields': [
@@ -1672,6 +1718,7 @@ def encode_C1G2TagSpec(par):
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len) + data
     return data
+
 
 Message_struct['C1G2TagSpec'] = {
     'type': 338,
@@ -1713,6 +1760,7 @@ def encode_C1G2TargetTag(par):
                        len(data) + msg_header_len) + data
     return data
 
+
 Message_struct['C1G2TargetTag'] = {
     'type': 339,
     'fields': [
@@ -1743,6 +1791,7 @@ def encode_C1G2Read(par):
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len) + data
     return data
+
 
 Message_struct['C1G2Read'] = {
     'type': 341,
@@ -1775,6 +1824,7 @@ def encode_C1G2Write(par):
                        len(data) + msg_header_len) + data
     return data
 
+
 Message_struct['C1G2Write'] = {
     'type': 342,
     'fields': [
@@ -1805,6 +1855,7 @@ def encode_C1G2Lock(par):
                        len(data) + msg_header_len) + data
     return data
 
+
 Message_struct['C1G2Lock'] = {
     'type': 344,
     'fields': [
@@ -1815,6 +1866,7 @@ Message_struct['C1G2Lock'] = {
     ],
     'encode': encode_C1G2Lock
 }
+
 
 # 16.2.1.3.2.5.1 C1G2LockPayload Parameter
 def encode_C1G2LockPayload(par):
@@ -1829,6 +1881,7 @@ def encode_C1G2LockPayload(par):
                        len(data) + msg_header_len) + data
     return data
 
+
 Message_struct['C1G2LockPayload'] = {
     'type': 345,
     'fields': [
@@ -1839,6 +1892,7 @@ Message_struct['C1G2LockPayload'] = {
     ],
     'encode': encode_C1G2LockPayload
 }
+
 
 # 16.2.1.3.2.7 C1G2BlockWrite
 def encode_C1G2BlockWrite(par):
@@ -1856,6 +1910,7 @@ def encode_C1G2BlockWrite(par):
     data = struct.pack(msg_header, msgtype,
                        len(data) + msg_header_len) + data
     return data
+
 
 Message_struct['C1G2BlockWrite'] = {
     'type': 347,
@@ -1884,6 +1939,7 @@ def encode_AccessReportSpec(par):
 
     return data
 
+
 Message_struct['AccessReportSpec'] = {
     'type': 239,
     'fields': [
@@ -1908,6 +1964,7 @@ def encode_ROBoundarySpec(par):
                        len(data) + msg_header_len) + data
 
     return data
+
 
 Message_struct['ROBoundarySpec'] = {
     'type': 178,
@@ -1934,6 +1991,7 @@ def encode_ROSpecStartTrigger(par):
                        len(data) + msg_header_len, t_type) + data
 
     return data
+
 
 Message_struct['ROSpecStartTrigger'] = {
     'type': 179,
@@ -1963,6 +2021,7 @@ def encode_ROSpecStopTrigger(par):
                        t_type, duration) + data
 
     return data
+
 
 Message_struct['ROSpecStopTrigger'] = {
     'type': 182,
@@ -2000,6 +2059,7 @@ def encode_AISpec(par):
                        len(data) + msg_header_len, len(antennas)) + data
 
     return data
+
 
 Message_struct['AISpec'] = {
     'type': 183,
@@ -2106,6 +2166,7 @@ def encode_InventoryParameterSpec(par):
 
     return data
 
+
 Message_struct['InventoryParameterSpec'] = {
     'type': 186,
     'fields': [
@@ -2133,6 +2194,7 @@ def encode_AntennaConfiguration(par):
                        len(data) + struct.calcsize(msg_header)) + data
     return data
 
+
 Message_struct['AntennaConfiguration'] = {
     'type': 222,
     'fields': [
@@ -2157,6 +2219,7 @@ def encode_RFReceiver(par):
                        len(data) + struct.calcsize(msg_header)) + data
     return data
 
+
 Message_struct['RFReceiver'] = {
     'type': 223,
     'fields': [
@@ -2177,6 +2240,7 @@ def encode_RFTransmitter(par):
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
     return data
+
 
 Message_struct['RFTransmitter'] = {
     'type': 224,
@@ -2207,6 +2271,7 @@ def encode_C1G2InventoryCommand(par):
                        len(data) + struct.calcsize(msg_header)) + data
     return data
 
+
 Message_struct['C1G2InventoryCommand'] = {
     'type': 330,
     'fields': [
@@ -2224,6 +2289,7 @@ Message_struct['C1G2InventoryCommand'] = {
 def encode_C1G2Filter(par):
     raise NotImplementedError
 
+
 Message_struct['C1G2Filter'] = {
     'type': 331,
     'fields': [],
@@ -2240,6 +2306,7 @@ def encode_C1G2RFControl(par):
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
     return data
+
 
 Message_struct['C1G2RFControl'] = {
     'type': 335,
@@ -2261,6 +2328,7 @@ def encode_C1G2SingulationControl(par):
     data = struct.pack(msg_header, msgtype,
                        len(data) + struct.calcsize(msg_header)) + data
     return data
+
 
 Message_struct['C1G2SingulationControl'] = {
     'type': 336,
@@ -2289,6 +2357,7 @@ def encode_ROReportSpec(par):
                        roReportTrigger, n) + data
 
     return data
+
 
 Message_struct['ROReportSpec'] = {
     'type': 237,
@@ -2319,6 +2388,7 @@ def encode_TagReportContentSelector(par):
                        len(data) + struct.calcsize(msg_header)) + data
 
     return data
+
 
 Message_struct['TagReportContentSelector'] = {
     'type': 238,
@@ -2382,6 +2452,7 @@ def decode_TagReportData(data):
 
     logger.debug('par=%s', par)
     return par, data[length:]
+
 
 Message_struct['TagReportData'] = {
     'type': 240,
@@ -2456,6 +2527,7 @@ def decode_OpSpecResult(data):
 
     return par, data[length:]
 
+
 Message_struct['OpSpecResult'] = {
     'type': -1,
     'fields': [
@@ -2471,6 +2543,7 @@ Message_struct['OpSpecResult'] = {
     'decode': lambda: None
 }
 
+
 Message_struct['C1G2ReadOpSpecResult'] = {
     'type': 349,
     'fields': [
@@ -2483,6 +2556,7 @@ Message_struct['C1G2ReadOpSpecResult'] = {
     'decode': decode_OpSpecResult
 }
 
+
 Message_struct['C1G2WriteOpSpecResult'] = {
     'type': 350,
     'fields': [
@@ -2494,6 +2568,7 @@ Message_struct['C1G2WriteOpSpecResult'] = {
     'decode': decode_OpSpecResult
 }
 
+
 Message_struct['C1G2KillOpSpecResult'] = {
     'type': 351,
     'fields': [
@@ -2503,6 +2578,7 @@ Message_struct['C1G2KillOpSpecResult'] = {
     ],
     'decode': decode_OpSpecResult
 }
+
 
 Message_struct['C1G2RecommissionOpSpecResult'] = {
     'type': 360,
@@ -2514,6 +2590,7 @@ Message_struct['C1G2RecommissionOpSpecResult'] = {
     'decode': decode_OpSpecResult
 }
 
+
 Message_struct['C1G2LockOpSpecResult'] = {
     'type': 352,
     'fields': [
@@ -2524,6 +2601,7 @@ Message_struct['C1G2LockOpSpecResult'] = {
     'decode': decode_OpSpecResult
 }
 
+
 Message_struct['C1G2BlockEraseOpSpecResult'] = {
     'type': 353,
     'fields': [
@@ -2533,6 +2611,7 @@ Message_struct['C1G2BlockEraseOpSpecResult'] = {
     ],
     'decode': decode_OpSpecResult
 }
+
 
 Message_struct['C1G2BlockWriteOpSpecResult'] = {
     'type': 354,
@@ -2545,6 +2624,7 @@ Message_struct['C1G2BlockWriteOpSpecResult'] = {
     'decode': decode_OpSpecResult
 }
 
+
 Message_struct['C1G2BlockPermalockOpSpecResult'] = {
     'type': 361,
     'fields': [
@@ -2554,6 +2634,7 @@ Message_struct['C1G2BlockPermalockOpSpecResult'] = {
     ],
     'decode': decode_OpSpecResult
 }
+
 
 Message_struct['C1G2GetBlockPermalockStatusOpSpecResult'] = {
     'type': 362,
@@ -2590,6 +2671,7 @@ def decode_EPCData(data):
 
     return par, data[length:]
 
+
 Message_struct['EPCData'] = {
     'type': 241,
     'fields': [
@@ -2623,6 +2705,7 @@ def decode_EPC96(data):
 
     return par, data[length:]
 
+
 Message_struct['EPC-96'] = {
     'type': 13,
     'fields': [
@@ -2652,6 +2735,7 @@ def decode_ROSpecID(data):
     (par['ROSpecID'], ) = struct.unpack('!I', body)
 
     return par, data[length:]
+
 
 Message_struct['ROSpecID'] = {
     'type': 9,
@@ -2692,6 +2776,7 @@ def decode_ReaderEventNotificationData(data):
         par['AntennaEvent'] = ret
 
     return par, body
+
 
 Message_struct['ReaderEventNotificationData'] = {
     'type': 246,
@@ -2736,6 +2821,7 @@ def decode_AntennaEvent(data):
 
     return par, data[length:]
 
+
 Message_struct['AntennaEvent'] = {
     'type': 255,
     'fields': [
@@ -2768,6 +2854,7 @@ def decode_ConnectionAttemptEvent(data):
     par['Status'] = ConnEvent_Type2Name[status]
 
     return par, data[length:]
+
 
 Message_struct['ConnectionAttemptEvent'] = {
     'type': 256,
@@ -2827,6 +2914,7 @@ def decode_LLRPStatus(data):
 
     return par, data[length:]
 
+
 Message_struct['LLRPStatus'] = {
     'type':   287,
     'fields': [
@@ -2862,6 +2950,7 @@ def decode_FieldError(data):
     (par['FieldNum'], ) = struct.unpack('!H', body[:offset])
 
     return par, data[length:]
+
 
 Message_struct['FieldError'] = {
     'type':   288,
@@ -2910,6 +2999,7 @@ def decode_ParameterError(data):
         raise LLRPError('junk at end of message: ' + bin2dump(body))
 
     return par, data[length:]
+
 
 Message_struct['ParameterError'] = {
     'type':   289,
@@ -3083,8 +3173,10 @@ class LLRPROSpec(dict):
 
 
 class LLRPMessageDict(dict):
+
     def __repr__(self):
         return llrp_data2xml(self)
+
 
 # Reverse dictionary for Message_struct types
 Message_Type2Name = {}
