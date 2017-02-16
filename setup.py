@@ -19,7 +19,8 @@ def find_version(*file_paths):
 
     # The version line must have the form
     # __version__ = 'ver'
-    version_match = re.search(r'^__version__ = [\'"]([^"\']*)["\']', version_file, re.M)
+    version_match = re.search(r'^__version__ = [\'"]([^"\']*)["\']',
+                              version_file, re.M)
     if version_match:
         return version_match.group(1)
     raise RuntimeError("Unable to find version string.")
@@ -47,13 +48,11 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.5',
         'Topic :: Scientific/Engineering :: Information Analysis',
     ],
     keywords='rfid llrpyc reader',
     packages=['sllurp'],
-    install_requires=['twisted'],
     entry_points={
         'console_scripts': [
             'inventory=sllurp.inventory:main',
