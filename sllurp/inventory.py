@@ -43,8 +43,6 @@ def finish(loop):
     logger.info('total # of tags seen: %d (%d tags/second)', numTags,
                 numTags/runTime)
     shutdown_event.set()
-#    if reactor.running:
-#        reactor.stop()
 
 
 def politeShutdown(factory):
@@ -142,11 +140,6 @@ def main():
 
     loop = asyncio.get_event_loop()
 
-    # d.callback will be called when all connections have terminated normally.
-    # use d.addCallback(<callable>) to define end-of-program behavior.
-#    d = defer.Deferred()
-#    d.addCallback(finish)
-
     eng = llrp.LLRPClientEngine(onFinish=finish,
                                 duration=args.time,
                                 report_every_n_tags=args.every_n,
@@ -182,18 +175,20 @@ def main():
     for host in args.host:
         coroutines.append(eng.new_reader(host, args.port, timeout=3))
 
-    # catch ctrl-C and stop inventory before disconnecting
-#    reactor.addSystemEventTrigger('before', 'shutdown', politeShutdown, eng)
-
-
     # start runtime measurement to determine rates
     startTimeMeasurement()
 
-    loop.run_until_complete(
-        asyncio.gather(*coroutines)
-    )
-    # loop.close()
-#    reactor.run()
+    tasks = asyncio.gather(*coroutines)
+
+    try:
+        loop.run_until_complete(tasks)
+    except KeyboardInterrupt as e:
+        tasks.cancel()
+        eng.politeShutdown()
+        loop.run_forever()
+        tasks.exception()
+    finally:
+        loop.close()
 
 
 if __name__ == '__main__':

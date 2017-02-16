@@ -1108,10 +1108,9 @@ class LLRPClientEngine(object):
 
     def politeShutdown(self):
         """Stop inventory on all connected readers."""
-        protoDeferreds = []
+        loop = get_event_loop()
         for proto in self.protocols:
-            protoDeferreds.append(proto.stopPolitely(disconnect=True))
-        return DeferredList(protoDeferreds)
+            loop.call_soon(proto.stopPolitely, True)
 
     def getProtocolStates(self):
         states = {str(proto.peername[0]): LLRPClient.getStateName(proto.state)
